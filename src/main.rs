@@ -2,7 +2,7 @@ use chrono::NaiveDate;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::HashMap;
-use std::fs::{self, File};
+use std::fs::{self, OpenOptions};
 use std::io::prelude::*;
 
 fn main() {
@@ -19,11 +19,17 @@ fn main() {
     let posts = get_posts(post_content_type_id, data, tags, categories);
 
     let dir_prefix = "blog";
+    let mut count = 0;
     for (_, post) in posts {
         save(dir_prefix, post);
+        count += 1;
     }
 
-    println!("Finished");
+    println!(
+        "Finished processing {} post{}",
+        count,
+        if count != 1 { "s" } else { "" }
+    );
 }
 
 #[derive(Debug)]
@@ -41,14 +47,20 @@ struct Frontmatter {
     tags: Vec<String>,
 }
 
-/// Save the post as a markdown file. Need to manually create a blog dir first.
+/// Save the post as a markdown file
 fn save(dir_prefix: &str, post: Post) {
+    fs::create_dir_all(dir_prefix).expect("Couldn't create dir to store the posts");
+
     let mut buffer = String::new();
     buffer.push_str(&serde_yaml::to_string(&post.meta).unwrap());
     buffer.push_str("---\n\n");
     buffer.push_str(&post.body);
 
-    let mut file = File::create(format!("{}/{}.md", dir_prefix, post.meta.slug)).unwrap();
+    let mut file = OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(format!("{}/{}.md", dir_prefix, post.meta.slug))
+        .unwrap();
     file.write_all(buffer.as_bytes()).unwrap();
 }
 
